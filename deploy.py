@@ -4,11 +4,11 @@ import os
 from os.path import abspath, exists
 import argparse
 import glob
+import sys
 
 PI_HOST = os.environ.get("PI_HOST")
 PI_NAME = os.environ.get("PI_NAME")
 PI_PASSWORD = os.environ.get("PI_PASSWORD")
-
 
 
 class DeployClient():
@@ -24,6 +24,7 @@ class DeployClient():
         self.stdin = channel.makefile('wb')
         self.stdout = channel.makefile('r')
 
+
     #deploys rust project to pi for building and running
     def deploy(self, path):
         print('Deploying files...')
@@ -32,28 +33,32 @@ class DeployClient():
         self.stdin.write('cd '+path + ' && cargo build && cargo run\n')
         self.stdin.flush()
         self._read_command()
-        
+        self.ssh.close()
+
 
     def _read_command(self):
-        for line in self.stdout:
-            print(line)
+        try: 
+            for line in self.stdout:
+                print(line)
+
+        except KeyboardInterrupt:
+            print('Shutting down gracefully...')
+            pass
 
 
     def _upload(self, path):
         files = glob.glob(path+'**', recursive=True)
         for file in files:
             self._sftp(file)
-            
+         
 
     def _sftp(self, file):
         sftp = self.ssh.open_sftp()
-        if os.path.isdir(file):
-            
+        if os.path.isdir(file):            
             try: 
                 sftp.mkdir(file)
             except IOError:
                 pass
-
         else:
             sftp.put(file,file)
         sftp.close()
